@@ -1,13 +1,13 @@
 {
   "files": {
-    "main.css": "/mental-razors-dashboard/static/css/main.4778cb42.css",
-    "main.js": "/mental-razors-dashboard/static/js/main.acb485b3.js",
+    "main.css": "/mental-razors-dashboard/static/css/main.f7c8a7c7.css",
+    "main.js": "/mental-razors-dashboard/static/js/main.72d641aa.js",
     "index.html": "/mental-razors-dashboard/index.html",
-    "main.4778cb42.css.map": "/mental-razors-dashboard/static/css/main.4778cb42.css.map",
-    "main.acb485b3.js.map": "/mental-razors-dashboard/static/js/main.acb485b3.js.map"
+    "main.f7c8a7c7.css.map": "/mental-razors-dashboard/static/css/main.f7c8a7c7.css.map",
+    "main.72d641aa.js.map": "/mental-razors-dashboard/static/js/main.72d641aa.js.map"
   },
   "entrypoints": [
-    "static/css/main.4778cb42.css",
-    "static/js/main.acb485b3.js"
+    "static/css/main.f7c8a7c7.css",
+    "static/js/main.72d641aa.js"
   ]
 }
