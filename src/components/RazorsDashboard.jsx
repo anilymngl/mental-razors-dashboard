@@ -543,7 +543,7 @@ const RazorCard = ({ razor }) => {
           onClick={() => setShowDetails(!showDetails)}
           className="mt-4 text-sm text-blue-500 hover:text-blue-700"
         >
-          {showDetails ? 'Show Less' : 'Show More'}
+          {showDetails ? 'Hide Case Studies' : 'Show Case Studies'}
         </button>
       </CardContent>
     </Card>
