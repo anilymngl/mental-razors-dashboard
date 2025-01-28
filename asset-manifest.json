@@ -1,10 +1,10 @@
 {
   "files": {
-    "main.css": "/my-razors-dashboard/static/css/main.4778cb42.css",
-    "main.js": "/my-razors-dashboard/static/js/main.acb485b3.js",
-    "index.html": "/my-razors-dashboard/index.html",
-    "main.4778cb42.css.map": "/my-razors-dashboard/static/css/main.4778cb42.css.map",
-    "main.acb485b3.js.map": "/my-razors-dashboard/static/js/main.acb485b3.js.map"
+    "main.css": "/mental-razors-dashboard/static/css/main.4778cb42.css",
+    "main.js": "/mental-razors-dashboard/static/js/main.acb485b3.js",
+    "index.html": "/mental-razors-dashboard/index.html",
+    "main.4778cb42.css.map": "/mental-razors-dashboard/static/css/main.4778cb42.css.map",
+    "main.acb485b3.js.map": "/mental-razors-dashboard/static/js/main.acb485b3.js.map"
   },
   "entrypoints": [
     "static/css/main.4778cb42.css",
