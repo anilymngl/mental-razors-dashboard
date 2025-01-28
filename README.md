@@ -17,7 +17,7 @@ This dashboard provides a curated collection of mental razors, explained in a si
 
 You can view the live dashboard on GitHub Pages here:
 
-[https://anilymngl.github.io/my-razors-dashboard](https://anilymngl.github.io/my-razors-dashboard)
+[https://anilymngl.github.io/mental-razors-dashboard](https://anilymngl.github.io/mental-razors-dashboard)
 
 ## Run it Locally (If you want to explore the code)
 
