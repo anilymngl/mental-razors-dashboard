@@ -4,8 +4,26 @@ module.exports = {
       "./src/**/*.{js,jsx,ts,tsx}",
       "./public/index.html",
     ],
+    darkMode: 'class',
     theme: {
-      extend: {},
+      extend: {
+        typography: {
+          DEFAULT: {
+            css: {
+              color: 'inherit',
+              a: {
+                color: '#3182ce',
+                '&:hover': {
+                  color: '#2c5282',
+                },
+              },
+            },
+          },
+        },
+      },
     },
-    plugins: [],
+    plugins: [
+      require('@tailwindcss/line-clamp'),
+      require('@tailwindcss/typography'),
+    ],
   }

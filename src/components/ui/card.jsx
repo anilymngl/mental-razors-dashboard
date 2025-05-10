@@ -1,19 +1,27 @@
 import React from 'react';
 
-export const Card = ({ className = '', children }) => (
-  <div className={`bg-white shadow rounded-lg p-4 ${className}`}>
-    {children}
-  </div>
-);
+export const Card = ({ className, ...props }) => {
+  return (
+    <div
+      className={`rounded-lg border bg-white shadow-sm dark:bg-gray-800 dark:border-gray-700 ${className}`}
+      {...props}
+    />
+  );
+};
 
-export const CardHeader = ({ children }) => (
-  <div className="border-b pb-2 mb-4">{children}</div>
-);
+export const CardHeader = ({ className, ...props }) => {
+  return <div className={`p-6 pb-0 ${className}`} {...props} />;
+};
 
-export const CardTitle = ({ children, className = '' }) => (
-  <h3 className={`text-lg font-bold ${className}`}>{children}</h3>
-);
+export const CardTitle = ({ className, ...props }) => {
+  return (
+    <h3
+      className={`text-lg font-medium leading-none dark:text-white ${className}`}
+      {...props}
+    />
+  );
+};
 
-export const CardContent = ({ children, className = '' }) => (
-  <div className={className}>{children}</div>
-);
+export const CardContent = ({ className, ...props }) => {
+  return <div className={`p-6 ${className}`} {...props} />;
+};

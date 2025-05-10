@@ -1,3 +1,33 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Existing styles (if any) */
+body {
+  font-family: sans-serif;
+}
+
+/* Custom Tooltip Styles */
+.custom-tooltip-trigger:hover .custom-tooltip-content {
+  visibility: visible;
+  opacity: 1;
+  /* z-index can be adjusted here if the default z-50 from TooltipWrapper is not enough */
+  /* z-index: 1000; */ 
+}
+
+/* 
+  The .dark variants for the tooltip content are now handled by 
+  Tailwind classes directly in the TooltipWrapper component in textUtils.js.
+  e.g., dark:bg-gray-100 dark:text-gray-900
+*/
+
+/* Optional: Add dark mode specific styles for the custom tooltip if needed */
+/* For example, if your TooltipWrapper had different hardcoded colors for dark mode */
+.dark .custom-tooltip-trigger {
+  /* color: #60a5fa; */ /* Example: Tailwind's text-blue-400 */
+}
+
+.dark .custom-tooltip-content {
+  /* background-color: #e5e7eb; */ /* Example: Tailwind's bg-gray-200 */
+  /* color: #1f2937; */ /* Example: Tailwind's text-gray-800 */
+}

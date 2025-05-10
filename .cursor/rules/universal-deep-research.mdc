@@ -1,0 +1,131 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+
+# Meta-Prompt: Creating Comprehensive Deep Research Prompts
+
+## Process Overview
+This meta-prompt guides the creation of a detailed, structured research prompt for any subject that requires deep investigation. It ensures the resulting research prompt will be comprehensive, technically precise, and actionable.
+
+## Initial Knowledge Gathering
+
+Begin by acquiring foundational knowledge to inform your research prompt design:
+
+1. Acknowledge current knowledge level about the subject.
+
+2. Conduct preliminary web research:
+   ```
+   Use the web_search tool to find information about [SUBJECT]. Focus on:
+   - Core concepts and fundamental principles
+   - Historical context and evolution
+   - Key theories, models, or frameworks
+   - Major contributors and their perspectives
+   - Current state of knowledge
+   ```
+
+3. Expand web research with specific queries:
+   ```
+   Use web_search for targeted queries like:
+   - "[SUBJECT] review" or "[SUBJECT] survey"
+   - "[SUBJECT] limitations" or "[SUBJECT] challenges"
+   - "[SUBJECT] best practices" or "[SUBJECT] methodology"
+   - "[SUBJECT] future directions" or "[SUBJECT] emerging trends"
+   ```
+
+4. Identify authoritative sources that should be consulted in the deep research.
+
+## Critical Assessment of Preliminary Findings
+
+After gathering initial information, analyze what you've learned:
+
+1. Map the key components and relationships of the subject
+2. Note important knowledge domains and sub-fields
+3. Identify apparent knowledge gaps requiring deeper investigation
+4. Recognize methodological approaches used in the field
+5. Consider competing theories or frameworks for comparison
+
+## Research Prompt Structure Design
+
+Now craft a comprehensive research prompt with these components:
+
+### 1. Research Objective
+Define a clear, specific objective that emphasizes depth, comprehensiveness, and utility.
+
+### 2. Fundamental Structure Analysis
+Request detailed examination of:
+- Core principles and conceptual frameworks
+- Underlying mechanisms and processes
+- Theoretical foundations and assumptions
+- Boundary conditions and scope limitations
+
+### 3. Technical Deep-Dive Requirements
+For each major component identified, specify research requirements for:
+- Methodological approaches and their limitations
+- Evidence quality assessment
+- Analytical frameworks and potential biases
+- Implementation details where applicable
+
+### 4. Practical Application Investigation
+Request analysis of:
+- Real-world implementation patterns
+- Contextual adaptations and variations
+- Case studies of success and failure
+- Transfer of theory to practice
+
+### 5. Comparative Analysis Framework
+Structure requirements for comparison with:
+- Alternative approaches or competing theories
+- Historical evolution and paradigm shifts
+- Cross-disciplinary perspectives
+- Contextual variations (geographical, cultural, etc.)
+
+### 6. Critical Evaluation Requirements
+Explicitly request:
+- Empirical validation of claims
+- Logical consistency assessment
+- Identification of unstated assumptions
+- Analysis of biases or conflicts of interest
+
+### 7. Future Directions Exploration
+Request analysis of:
+- Emerging trends and developments
+- Unresolved questions and active research areas
+- Potential paradigm shifts
+- Adaptation to changing contexts
+
+### 8. Practical Guidance Specifications
+Request documentation of:
+- Decision frameworks for application
+- Implementation considerations
+- Common pitfalls and how to avoid them
+- Evaluation metrics and success indicators
+
+## Research Methodology Requirements
+
+Specify research standards for the resulting deep research:
+- Expected evidence quality (empirical, theoretical, experiential)
+- Appropriate methodological approaches for the subject
+- Necessary interdisciplinary perspectives
+- Balance between depth and breadth
+- Epistemological considerations
+
+## Domain-Specific Adaptations
+
+Include guidance on how the research prompt should be adapted based on subject type:
+- For empirical subjects: emphasis on data quality, methodology, replication
+- For theoretical subjects: focus on logical consistency, axioms, implications
+- For applied subjects: attention to context, implementation factors, outcomes
+- For emergent subjects: exploration of competing frameworks, limited evidence
+
+## Final Requirements and Formatting
+
+End with specific instructions for the research prompt:
+- Expected level of technical precision and detail
+- Balance between comprehensiveness and conciseness
+- Required visual representations or illustrations
+- Citation and evidence standards
+- Output format and organization
+
+The output should be a comprehensive research prompt that, when followed, will yield a nuanced, thorough understanding of any complex subject matter, balancing theoretical depth with practical utility.
