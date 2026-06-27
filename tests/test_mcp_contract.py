@@ -2,7 +2,7 @@
 tests/test_mcp_contract.py
 
 Verifies the MCP server registers the correct tools, resources, and prompts,
-and that the tools execute correctly against the new ReviewRecordInput schema.
+and that the tools execute correctly against the GovernedFinding schema.
 """
 from __future__ import annotations
 
@@ -66,6 +66,29 @@ async def test_search_razors_returns_results():
 
 
 @pytest.mark.asyncio
+async def test_search_razors_filter_before_score():
+    """
+    When filtering by category, results must be drawn from that category only,
+    even if other categories would score higher without the filter.
+    """
+    results, _ = await mcp.call_tool("search_razors", {
+        "query": "over-engineering complexity microservices",
+        "category": "expertise-traps",
+        "limit": 5,
+    })
+    parsed = [json.loads(r.text) for r in results]
+    # All returned razors must be from the requested category
+    from mental_razors.loader import get_razors
+    all_razors = {r["id"]: r for r in get_razors()}
+    for p in parsed:
+        razor = all_razors.get(p["razor_id"])
+        assert razor is not None, f"Unknown razor_id: {p['razor_id']}"
+        assert razor.get("category_id") == "expertise-traps", (
+            f"Razor {p['razor_id']} is in category {razor.get('category_id')}, not expertise-traps"
+        )
+
+
+@pytest.mark.asyncio
 async def test_prepare_review_returns_packet():
     results, _ = await mcp.call_tool("prepare_review", {
         "content": "Our system assumes optimal behavior from all users.",
@@ -92,27 +115,35 @@ async def test_prepare_claim_challenge_returns_packet():
 @pytest.mark.asyncio
 async def test_record_review_and_outcome_end_to_end(monkeypatch):
     """
-    Full round-trip: record_review then record_outcome.
-    Uses a temp dir to avoid touching real storage.
+    Full round-trip: record_review with GovernedFinding, then record_outcome.
+    Verifies: server-side hashing, evidence validation, UUID generation, schema_version=3.
     """
     import uuid
 
     with tempfile.TemporaryDirectory() as tmp_dir:
         monkeypatch.setenv("MENTAL_RAZORS_DATA_DIR", tmp_dir)
 
-        content = "Deploy three independent microservices for auth, profile, and logging."
-        content_hash = hashlib.sha256(content.encode()).hexdigest()
+        proposal = "Deploy three independent microservices for auth, profile, and logging."
+        quote = "three independent microservices for auth, profile, and logging"
+        start = proposal.index(quote)
 
         review_record_input = {
             "decision_id": "mcp-e2e-test-001",
             "mode": "quick-check",
-            "initial_content_hash": content_hash,
-            "final_content_hash": None,
+            "proposal_text": proposal,
+            "revised_text": None,
             "findings": [
                 {
-                    "razor_id": "complexity-razor",
+                    "razor_id": "over-engineering-razor",
                     "disposition": "mitigated",
-                    "change_summary": "Merged into a single service."
+                    "evidence_quote": quote,
+                    "evidence_start": start,
+                    "evidence_end": start + len(quote),
+                    "causal_risk": "Three services add deployment overhead with no measured benefit.",
+                    "diagnostic_question": "Have you profiled request boundaries?",
+                    "false_positive_condition": "If each service has distinct team ownership.",
+                    "bounded_action": "Merge into one service; split later if profiling confirms.",
+                    "change_summary": "Merged three services into one.",
                 }
             ],
             "decision_summary": "Mitigated: Merged three services into one.",
@@ -129,12 +160,24 @@ async def test_record_review_and_outcome_end_to_end(monkeypatch):
         assert parsed_record["decision_id"] == "mcp-e2e-test-001"
         assert parsed_record["review_id"] is not None
         assert parsed_record["knowledge_version"] is not None
-        assert parsed_record["schema_version"] == 2
+        assert parsed_record["schema_version"] == 3
 
-        # Validate that a UUID was stored
-        uuid.UUID(parsed_record["review_id"])  # raises if invalid
+        # Server must compute hash from proposal_text — caller never pre-computes it
+        expected_hash = hashlib.sha256(proposal.encode()).hexdigest()
+        assert parsed_record["initial_content_hash"] == expected_hash
 
-        # Now record an outcome linked to this review
+        # Must be a valid UUID
+        uuid.UUID(parsed_record["review_id"])
+
+        # Governed finding must be stored with all five contract fields
+        finding = parsed_record["findings"][0]
+        assert finding["evidence_quote"] == quote
+        assert finding["causal_risk"] is not None
+        assert finding["diagnostic_question"] is not None
+        assert finding["false_positive_condition"] is not None
+        assert finding["bounded_action"] is not None
+
+        # Record an outcome linked to this review
         outcome_input = {
             "review_id": parsed_record["review_id"],
             "observed_at": "2026-08-01",
