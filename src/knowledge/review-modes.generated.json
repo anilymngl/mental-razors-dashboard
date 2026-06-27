@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "modes": [
+    {
+      "id": "quick-check",
+      "label": "Quick Check",
+      "max_candidates": 3,
+      "prioritize": []
+    },
+    {
+      "id": "architecture-review",
+      "label": "Architecture Review",
+      "max_candidates": 5,
+      "prioritize": [
+        "over-engineering-razor",
+        "granularity-razor",
+        "complexity-razor",
+        "innovation-razor"
+      ]
+    },
+    {
+      "id": "strategy-review",
+      "label": "Strategy Review",
+      "max_candidates": 5,
+      "prioritize": [
+        "legacy-razor",
+        "confidence-razor",
+        "coherence-razor"
+      ]
+    },
+    {
+      "id": "postmortem-review",
+      "label": "Postmortem Review",
+      "max_candidates": 5,
+      "prioritize": [
+        "coherence-razor",
+        "granularity-razor",
+        "simplicity-razor"
+      ]
+    },
+    {
+      "id": "product-review",
+      "label": "Product Review",
+      "max_candidates": 5,
+      "prioritize": [
+        "innovation-razor",
+        "complexity-razor",
+        "granularity-razor"
+      ]
+    },
+    {
+      "id": "red-team",
+      "label": "Red Team",
+      "max_candidates": 7,
+      "prioritize": []
+    }
+  ]
+}
