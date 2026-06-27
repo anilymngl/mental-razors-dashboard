@@ -1,100 +1,150 @@
-# Walkthrough — Implementation of Mental Razors Core & MCP Server
+# Walkthrough — Governance Integrity Repair
 
-We have successfully refactored `mental-razors-dashboard` into a multi-consumer architecture.
-
----
-
-## Changes Made
-
-### 1. Knowledge Layer (`knowledge/`)
-* **[NEW] [razors.yaml](file:///Users/anilyamangil/Projects/mental-razors-dashboard/knowledge/razors.yaml)**: Flat canonical data file representing the 9 mental razors. Includes principles, patterns, warning signs, indicators, and examples.
-* **[NEW] [review-modes.yaml](file:///Users/anilyamangil/Projects/mental-razors-dashboard/knowledge/review-modes.yaml)**: Configuration presets for review targets (e.g., `architecture-review`, `strategy-review`).
-* **[NEW] [schemas/](file:///Users/anilyamangil/Projects/mental-razors-dashboard/knowledge/schemas/)**: Two separate JSON schemas validation specifications (`razors.schema.json` and `review-modes.schema.json`).
-
-### 2. Core Python Package (`mental_razors/`)
-* **[NEW] [models.py](file:///Users/anilyamangil/Projects/mental-razors-dashboard/mental_razors/models.py)**: Pydantic v2 schemas defining tool inputs/outputs (`EvidenceCandidate`, `RazorCandidate`, `ReviewPacket`, `ClaimChallengePacket`, `ReviewRecord`).
-* **[NEW] [loader.py](file:///Users/anilyamangil/Projects/mental-razors-dashboard/mental_razors/loader.py)**: YAML loading, caching, path resolution, and SHA-256 content versioning.
-* **[NEW] [validation.py](file:///Users/anilyamangil/Projects/mental-razors-dashboard/mental_razors/validation.py)**: JSON schema structural checks and semantic integrity logic (referential checking, uniqueness of IDs).
-* **[NEW] [retrieval.py](file:///Users/anilyamangil/Projects/mental-razors-dashboard/mental_razors/retrieval.py)**: Text tokenization, custom suffix stemmer, weight scoring, evidence sentence extraction, and candidate ranking.
-* **[NEW] [review.py](file:///Users/anilyamangil/Projects/mental-razors-dashboard/mental_razors/review.py)**: Workflow engines creating audit packages and claim challenge specifications.
-* **[NEW] [storage.py](file:///Users/anilyamangil/Projects/mental-razors-dashboard/mental_razors/storage.py)**: Append-only reviews logger persisting to gitignored `.local/reviews.jsonl` (with XDG/macOS Application Support fallback).
-
-### 3. MCP Server Adapter (`servers/mcp/`)
-* **[NEW] [server.py](file:///Users/anilyamangil/Projects/mental-razors-dashboard/servers/mcp/server.py)**: Exposes FastMCP resources (`razor://`, `review-mode://`), tools (`search_razors`, `prepare_review`, `prepare_claim_challenge`, `record_review`), and prompts (`architecture_review`, `strategy_review`, etc.).
-
-### 4. Build Scripts & Front-End Refactor
-* **[NEW] [compile_knowledge.py](file:///Users/anilyamangil/Projects/mental-razors-dashboard/scripts/compile_knowledge.py)**: Invokes validation pipeline and dumps JSON to dashboard. Includes `--check` drift-detection.
-* **[MODIFY] [package.json](file:///Users/anilyamangil/Projects/mental-razors-dashboard/package.json)**: Runs compilation scripts automatically during dashboard build and start tasks.
-* **[MODIFY] [RazorsDashboard.jsx](file:///Users/anilyamangil/Projects/mental-razors-dashboard/src/components/RazorsDashboard.jsx)**: Dynamically loads the generated JSON file and loops categories/tabs dynamically.
-* **[MODIFY] [.gitignore](file:///Users/anilyamangil/Projects/mental-razors-dashboard/.gitignore)**: Added `.local/` and `.venv/` exclusions.
+**Branch:** `feature/mcp-knowledge-kernel-clean`
+**Test result:** 40/40 passing · Build: `npm run build` clean
 
 ---
 
-## Validation & Testing
+## What was fixed (10-point repair plan)
 
-### 1. Deterministic Unit Tests
-The test suite consists of 20 unit tests checking compiler check mode, schema semantic restrictions, token matching, ranking, and file system storage overrides.
+### 1. `RazorsDashboard.jsx` — frontend blocker resolved
 
-Run command:
+**Problem:** Line 17 destructured `razorsGenerated` without importing it, causing a parse error. Lines 207/212/217 rendered `razorsData.expertiseTraps` — a deleted object.
+
+**Fix:**
+- Added `import razorsGenerated from '../knowledge/razors.generated.json'`
+- Removed all `razorsData` references
+- Tabs and content are now dynamically rendered from `categories[]` and `razors[]` arrays in the generated JSON — adding a new category to `razors.yaml` automatically appears in the UI after compile
+
+---
+
+### 2. `FindingDispositionEnum` and `FindingDecision` — structured dispositions
+
+**Problem:** Findings were stored as flat lists of IDs (`accepted_findings: List[str]`). No structured disposition, no per-razor change summary. The governance report had to guess meaning from text.
+
+**Fix (`mental_razors/models.py`):**
+```python
+class FindingDispositionEnum(str, Enum):
+    mitigated = "mitigated"
+    accepted  = "accepted"
+    deferred  = "deferred"
+    rejected  = "rejected"
+
+class FindingDecision(BaseModel):
+    razor_id:       str
+    disposition:    FindingDispositionEnum
+    change_summary: Optional[str]   # what changed (for mitigated/deferred)
+```
+`ReviewRecordInput.findings` is now `List[FindingDecision]`.
+
+---
+
+### 3. Real optional review duration
+
+**Problem:** Previous implementation fabricated duration with deterministic random values.
+
+**Fix:**
+- `review_duration_seconds: Optional[int]` — self-reported by the human reviewer, never synthesized
+- Governance report only shows median when at least one real timing exists; otherwise prints `"No timing data recorded"`
+
+---
+
+### 4. Correct three-way risk correlation
+
+**Problem:** All materialized risks were counted as "anticipated" regardless of whether the finding was accepted or rejected.
+
+**Fix (`scripts/governance_report.py`):**
+| Bucket | Meaning |
+|---|---|
+| `anticipated_and_accepted` | Risk was flagged, team accepted/deferred it, it materialized |
+| `anticipated_but_rejected` | Risk was flagged, team rejected the finding, it materialized anyway — the strongest governance signal |
+| `unanticipated` | Risk not referenced in any finding, or listed in `unexpected_issues` |
+
+---
+
+### 5. Referential integrity for outcomes
+
+**Problem:** `record_outcome()` would silently write an outcome for a non-existent review.
+
+**Fix (`mental_razors/storage.py`):**
+```python
+if not review_id_exists(review_id_str, d):
+    raise ValueError(f"No review with id '{review_id_str}' found in storage. ...")
+```
+
+---
+
+### 6. Multiple outcomes per review
+
+**Problem:** The data model and report assumed one outcome per review.
+
+**Fix:** `outcomes.jsonl` is append-only. Multiple `record_outcome()` calls for the same `review_id` all succeed. The report groups `outcomes_by_review: Dict[str, List[dict]]` and counts correctly.
+
+---
+
+### 7. Strict Pydantic types
+
+| Field | Old type | New type |
+|---|---|---|
+| `OutcomeRecordInput.review_id` | `str` | `UUID` |
+| `OutcomeRecordInput.observed_at` | `str` | `date` |
+| `OutcomeRecordInput.status` | `str` | `OutcomeStatus (Enum)` |
+| `OutcomeRecordInput.confidence` | `str` | `OutcomeConfidence (Enum)` |
+| `FindingDecision.disposition` | _(didn't exist)_ | `FindingDispositionEnum` |
+
+---
+
+### 8–9. Synthetic data seeder moved and guarded
+
+**Old:** `scripts/populate_pilot_data.py` — could accidentally write to the real data dir; no overwrite guard; records not labelled.
+
+**New:** `examples/seed_synthetic_demo.py`
+- Default output: `.demo-data/` (never `MENTAL_RAZORS_DATA_DIR` or Application Support)
+- Requires `--force` to overwrite existing demo files
+- Every record carries `"data_origin": "synthetic"`
+- Safety check at startup refuses to write to the real data directory
+- Run demo report: `uv run python scripts/governance_report.py --data-dir .demo-data`
+
+---
+
+### 10. Tests rewritten against controlled fixtures
+
+**`tests/test_storage.py` (16 new tests):**
+- `FindingDecision` disposition storage
+- `review_duration_seconds` optional/present
+- `record_review` append behaviour
+- `review_id_exists` true/false
+- `record_outcome` referential integrity rejection
+- `record_outcome` multi-outcome per review
+- Pydantic enum validation (status, confidence)
+- `date` type validation for `observed_at`
+- Load helpers return empty lists on missing files
+
+**`tests/test_mcp_contract.py` (8 tests):**
+- Tool/resource/prompt registration (split into individual tests)
+- Full round-trip end-to-end (record_review → record_outcome)
+- `test_stdio_startup`: now passes PYTHONPATH correctly to subprocess
+
+---
+
+## Proof
+
+| Check | Result |
+|---|---|
+| `npm run build` | ✅ Compiled successfully |
+| `uv run python -m pytest tests/ -v` | ✅ 40/40 passed |
+| `git push origin feature/mcp-knowledge-kernel-clean` | ✅ `d156f60..be4c3fb` |
+
+### Commands to validate
+
 ```bash
-PYTHONPATH=. uv run --with pytest --with pytest-asyncio pytest
-```
-
-Result:
-```text
-tests/test_compiler.py .                                                 [  5%]
-tests/test_knowledge.py .......                                          [ 40%]
-tests/test_mcp_contract.py ....                                          [ 60%]
-tests/test_retrieval.py ....                                             [ 80%]
-tests/test_review_packets.py ..                                          [ 90%]
-tests/test_storage.py ..                                                 [100%]
-
-============================== 20 passed in 0.23s ==============================
-```
-
-### 2. Reasoning Evaluation Harness
-Tested the retrieval model against 15 curated positive triggers, near-misses, and false-positive cases.
-
-Run command:
-```bash
-PYTHONPATH=. uv run python evals/run_reasoning_eval.py
-```
-
-Result:
-```text
-Running reasoning evaluation harness on 15 cases...
-============================================================
-[PASS] Case 'positive-legacy': Clear trigger for Legacy Razor
-[PASS] Case 'near-miss-legacy': Historical method validated with recent data - should NOT trigger
-[PASS] Case 'positive-complexity': Clear trigger for Complexity Razor
-[PASS] Case 'positive-innovation': Clear trigger for Innovation Razor
-[PASS] Case 'near-miss-innovation': Behavior change aligned with massive value proposition - should NOT trigger
-[PASS] Case 'positive-over-engineering': Clear trigger for Over-Engineering Razor
-[PASS] Case 'near-miss-over-engineering': Inherently complex domain (compiler) - should NOT trigger
-[PASS] Case 'positive-granularity': Clear trigger for Granularity Razor
-[PASS] Case 'positive-coherence': Clear trigger for Coherence Razor
-[PASS] Case 'positive-procrastination': Clear trigger for Procrastination Razor
-[PASS] Case 'positive-confidence': Clear trigger for Confidence Razor
-[PASS] Case 'positive-simplicity': Clear trigger for Simplicity Razor
-[PASS] Case 'no-finding-1': Clean system proposal - should NOT trigger any razor
-[PASS] Case 'multi-razor-ambiguity': Triggers both Legacy and Over-engineering
-[PASS] Case 'near-miss-coherence': Chaotic system with probabilistic forecasts - should NOT trigger
-============================================================
-Retrieval Eval Results: 15 passed, 0 failed out of 15 cases.
-```
-
-### 3. Front-End Production Build
-Verified React compiled successfully.
-
-Run command:
-```bash
+# Build
 npm run build
-```
 
-Result:
-```text
-Compiled successfully.
-File sizes after gzip:
-  81.14 kB  build/static/js/main.462855e7.js
-  6.68 kB   build/static/css/main.426075a6.css
+# Tests
+uv run python -m pytest tests/ -v
+
+# Demo report with synthetic data
+uv run python examples/seed_synthetic_demo.py
+uv run python scripts/governance_report.py --data-dir .demo-data
 ```
