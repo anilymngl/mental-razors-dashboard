@@ -345,6 +345,12 @@ dev = [
     { name = "pytest-asyncio" },
 ]
 
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "jsonschema", specifier = ">=4.24,<5" },
@@ -355,6 +361,12 @@ requires-dist = [
     { name = "pyyaml", specifier = ">=6.0,<7" },
 ]
 provides-extras = ["dev"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pytest", specifier = ">=8.4.2" },
+    { name = "pytest-asyncio", specifier = ">=0.26.0" },
+]
 
 [[package]]
 name = "packaging"
