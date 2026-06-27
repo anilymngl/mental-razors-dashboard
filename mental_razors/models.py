@@ -70,35 +70,139 @@ class ReviewPacket(BaseModel):
 
 
 # =====================================================================
-# FINDING DISPOSITION — per-razor structured decision
+# GOVERNED FINDING — the full five-part contract, stored per finding
 # =====================================================================
 
+class GovernedFinding(BaseModel):
+    """
+    A single governed finding — the complete evidence-grounded review contract
+    stored for every accepted, mitigated, or deferred finding.
+
+    This is the unit of governance audit: it preserves exactly what the reviewer
+    accepted as true, including the verbatim evidence quote they referenced.
+
+    Rejected findings are stored without evidence_quote/causal_risk/etc. to keep
+    the record lean; their razor_id and disposition=rejected are still captured.
+    """
+    razor_id:   str                   = Field(description="ID of the razor this finding refers to")
+    disposition: FindingDispositionEnum = Field(
+        description="How this finding was treated: mitigated | accepted | deferred | rejected"
+    )
+
+    # Evidence — the exact verbatim substring from the original proposal.
+    # Required for mitigated/accepted/deferred. Null for rejected.
+    evidence_quote:    Optional[str] = Field(
+        default=None,
+        description=(
+            "Verbatim substring from the original proposal the reviewer used as evidence. "
+            "Must satisfy proposal_text[evidence_start:evidence_end] == evidence_quote. "
+            "Required when disposition != rejected."
+        ),
+    )
+    evidence_start:    Optional[int] = Field(
+        default=None,
+        description="Character offset of evidence_quote in the original proposal text",
+    )
+    evidence_end:      Optional[int] = Field(
+        default=None,
+        description="Exclusive character offset end of evidence_quote",
+    )
+
+    # The five-part contract — required for mitigated/accepted/deferred
+    causal_risk:          Optional[str] = Field(
+        default=None,
+        description="What could go wrong if this finding is ignored",
+    )
+    diagnostic_question:  Optional[str] = Field(
+        default=None,
+        description="The concrete question asked to probe this reasoning flaw",
+    )
+    false_positive_condition: Optional[str] = Field(
+        default=None,
+        description="Under what conditions would this finding be a false positive",
+    )
+    bounded_action:       Optional[str] = Field(
+        default=None,
+        description="One specific bounded action recommended to address this finding",
+    )
+
+    # Decision outcome
+    change_summary: Optional[str] = Field(
+        default=None,
+        description="What materially changed in the proposal as a result (for mitigated/deferred)",
+    )
+
+
+# Backward-compatible alias kept for tests and older callers
+# Use GovernedFinding for all new code.
 class FindingDecision(BaseModel):
+    """
+    Lightweight finding record — use GovernedFinding for full evidence-grounded governance.
+    Retained for backward compatibility with existing test fixtures.
+    """
     razor_id:       str                   = Field(description="ID of the razor this finding refers to")
     disposition:    FindingDispositionEnum = Field(description="How this finding was treated: mitigated | accepted | deferred | rejected")
     change_summary: Optional[str]         = Field(default=None, description="What changed in the proposal as a result (for mitigated/deferred)")
 
 
 # =====================================================================
-# REVIEW RECORD — stored after a human completes a review
+# REVIEW RECORD INPUT — what the host model submits after a review
 # =====================================================================
 
 class ReviewRecordInput(BaseModel):
-    decision_id:             str                    = Field(description="User-provided identifier for the decision being audited")
-    mode:                    str                    = Field(description="The review mode used")
-    initial_content_hash:    str                    = Field(description="SHA-256 of the proposal text at review start")
-    final_content_hash:      Optional[str]          = Field(default=None, description="SHA-256 of the proposal after revision (None if unchanged)")
-    findings:                List[FindingDecision]  = Field(description="Per-razor structured disposition records")
-    decision_summary:        str                    = Field(description="One-sentence summary of the final decision")
-    change_summary:          Optional[str]          = Field(default=None, description="What materially changed as a result of the review")
-    review_duration_seconds: Optional[int]          = Field(default=None, description="Wall-clock review time in seconds (optional, self-reported)")
+    decision_id:      str  = Field(description="User-provided identifier for the decision being audited")
+    mode:             str  = Field(description="The review mode used")
+
+    # The proposal text — the server hashes it; raw text is NOT stored.
+    proposal_text:    str  = Field(
+        description=(
+            "The full original proposal text that was reviewed. "
+            "The server computes SHA-256(proposal_text) and validates all "
+            "evidence_quote fields against it. The text itself is discarded after validation."
+        ),
+    )
+    # Optional: the revised text after the review, if the proposal changed.
+    revised_text:     Optional[str] = Field(
+        default=None,
+        description=(
+            "The revised proposal text after applying mitigations. "
+            "If provided, the server hashes this as final_content_hash. "
+            "The text itself is discarded after hashing."
+        ),
+    )
+
+    # Governed findings — full five-part contract per finding.
+    # Submissions with disposition != rejected SHOULD include evidence fields
+    # and the five-part contract; the server validates evidence quotes.
+    findings:         List[GovernedFinding] = Field(
+        description=(
+            "Governed finding records. Each non-rejected finding must include "
+            "evidence_quote with character offsets that validate against proposal_text."
+        ),
+    )
+
+    decision_summary:        str          = Field(description="One-sentence summary of the final decision")
+    change_summary:          Optional[str] = Field(default=None, description="What materially changed as a result of the review")
+    review_duration_seconds: Optional[int] = Field(
+        default=None,
+        description="Wall-clock review time in seconds (optional, self-reported by the reviewer)",
+    )
 
 
-class ReviewRecord(ReviewRecordInput):
-    review_id:         str = Field(description="UUID v4 identifier for the audit record")
-    created_at:        str = Field(description="ISO 8601 UTC timestamp")
-    knowledge_version: str = Field(description="SHA-256 hash of the razors.yaml content")
-    schema_version:    int = Field(default=2, description="Format version of the audit trail")
+class ReviewRecord(BaseModel):
+    """Complete stored record — hashes computed by the server, text discarded."""
+    decision_id:             str                   = Field(description="User-provided identifier for the decision")
+    mode:                    str                   = Field(description="Review mode used")
+    initial_content_hash:    str                   = Field(description="SHA-256 of the original proposal_text")
+    final_content_hash:      Optional[str]         = Field(default=None, description="SHA-256 of revised_text, or None if unchanged")
+    findings:                List[GovernedFinding] = Field(description="Governed finding records")
+    decision_summary:        str                   = Field(description="One-sentence decision summary")
+    change_summary:          Optional[str]         = Field(default=None)
+    review_duration_seconds: Optional[int]         = Field(default=None)
+    review_id:               str                   = Field(description="UUID v4 identifier for the audit record")
+    created_at:              str                   = Field(description="ISO 8601 UTC timestamp")
+    knowledge_version:       str                   = Field(description="SHA-256 hash of razors.yaml")
+    schema_version:          int                   = Field(default=3, description="Format version of the audit trail")
 
 
 # =====================================================================
@@ -117,7 +221,6 @@ class OutcomeRecordInput(BaseModel):
 
 class OutcomeRecord(BaseModel):
     """Complete stored record — includes metadata added at write time."""
-    # All OutcomeRecordInput fields (flattened for serialization clarity)
     review_id:          str               = Field(description="UUID of the review this outcome is linked to (stored as string)")
     observed_at:        str               = Field(description="Date the outcome was observed (ISO format)")
     status:             OutcomeStatus     = Field(description="Outcome status")
@@ -125,10 +228,9 @@ class OutcomeRecord(BaseModel):
     risks_materialized: List[str]         = Field(description="Razor IDs that materialized")
     unexpected_issues:  List[str]         = Field(description="Unanticipated issues")
     confidence:         OutcomeConfidence = Field(description="Assessment confidence")
-    # Storage metadata
-    outcome_id:         str = Field(description="UUID v4 identifier for this outcome record")
-    created_at:         str = Field(description="ISO 8601 UTC timestamp")
-    schema_version:     int = Field(default=2, description="Format version of the outcome trail")
+    outcome_id:         str               = Field(description="UUID v4 identifier for this outcome record")
+    created_at:         str               = Field(description="ISO 8601 UTC timestamp")
+    schema_version:     int               = Field(default=2, description="Format version of the outcome trail")
 
 
 # =====================================================================
