@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "feature/**"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  python:
+    name: Python — pytest + knowledge check
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Install Python dependencies
+        run: uv sync --group dev
+
+      - name: Validate knowledge YAML
+        run: uv run python scripts/compile_knowledge.py --check
+        # compile_knowledge.py exits non-zero if YAML is invalid or IDs are broken
+
+      - name: Run pytest
+        run: uv run python -m pytest tests/ -v --tb=short
+
+  frontend:
+    name: React — production build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Build production bundle
+        run: npm run build
+        env:
+          CI: false
+          # CI=false prevents react-scripts from treating warnings as errors
