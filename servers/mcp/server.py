@@ -134,24 +134,24 @@ def prepare_claim_challenge(
 @mcp.tool()
 def record_review(
     review_record: ReviewRecordInput,
-    reviewed_content: str
 ) -> ReviewRecord:
     """
-    Store review results (accepted/rejected findings and final decisions)
-    to the append-only reviews history file (.local/reviews.jsonl).
+    Store a completed review to the append-only reviews.jsonl.
+    The caller must compute initial_content_hash (SHA-256 of the original proposal)
+    and optionally final_content_hash if the proposal was revised.
+    Findings must be structured FindingDecision records with explicit dispositions.
     """
-    return store_review(review_record, content=reviewed_content)
+    return store_review(review_record)
 
 @mcp.tool()
 def record_outcome(
-    review_id: str,
-    outcome: OutcomeRecordInput
+    outcome: OutcomeRecordInput,
 ) -> OutcomeRecord:
     """
-    Record observations, materialized risks, and decision success rates
-    for a completed review.
+    Record an outcome observation for a completed review.
+    The referenced review_id must exist in reviews.jsonl.
+    Multiple outcomes per review are allowed (e.g., 2-week, 6-week, 3-month check-ins).
     """
-    outcome.review_id = review_id
     return store_outcome(outcome)
 
 # =====================================================================
