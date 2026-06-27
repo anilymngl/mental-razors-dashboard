@@ -14,8 +14,11 @@ import {
   Scale
 } from 'lucide-react';
 
+import razorsGenerated from '../knowledge/razors.generated.json';
+
 const { categories, razors } = razorsGenerated;
 
+// Map category IDs to icon components
 const getCategoryIcon = (catId) => {
   switch (catId) {
     case 'expertise-traps':
@@ -28,7 +31,6 @@ const getCategoryIcon = (catId) => {
       return Lightbulb;
   }
 };
-
 
 // Each Razor is displayed in a Card
 const RazorCard = ({ razor }) => {
@@ -164,7 +166,9 @@ const RazorCard = ({ razor }) => {
 };
 
 const RazorsDashboard = () => {
-  const [selectedCategory, setSelectedCategory] = useState('expertiseTraps');
+  // Default to first category ID from the generated JSON
+  const firstCategoryId = categories.length > 0 ? categories[0].id : '';
+  const [selectedCategory, setSelectedCategory] = useState(firstCategoryId);
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
@@ -189,35 +193,31 @@ const RazorsDashboard = () => {
 
       <Tabs value={selectedCategory} onValueChange={setSelectedCategory}>
         <TabsList className="mb-6">
-          <TabsTrigger value="expertiseTraps" className="flex items-center gap-2">
-            <Brain className="h-4 w-4" />
-            Expertise Traps
-          </TabsTrigger>
-          <TabsTrigger value="systemTraps" className="flex items-center gap-2">
-            <Scale className="h-4 w-4" />
-            System Design Traps
-          </TabsTrigger>
-          <TabsTrigger value="cognitiveTraps" className="flex items-center gap-2">
-            <Activity className="h-4 w-4" />
-            Cognitive Blindspots
-          </TabsTrigger>
+          {categories.map((cat) => {
+            const Icon = getCategoryIcon(cat.id);
+            return (
+              <TabsTrigger
+                key={cat.id}
+                value={cat.id}
+                className="flex items-center gap-2"
+              >
+                <Icon className="h-4 w-4" />
+                {cat.label}
+              </TabsTrigger>
+            );
+          })}
         </TabsList>
 
-        <TabsContent value="expertiseTraps">
-          {razorsData.expertiseTraps.map((razor, i) => (
-            <RazorCard key={i} razor={razor} />
-          ))}
-        </TabsContent>
-        <TabsContent value="systemTraps">
-          {razorsData.systemTraps.map((razor, i) => (
-            <RazorCard key={i} razor={razor} />
-          ))}
-        </TabsContent>
-        <TabsContent value="cognitiveTraps">
-          {razorsData.cognitiveTraps.map((razor, i) => (
-            <RazorCard key={i} razor={razor} />
-          ))}
-        </TabsContent>
+        {categories.map((cat) => {
+          const categoryRazors = razors.filter((r) => r.category_id === cat.id);
+          return (
+            <TabsContent key={cat.id} value={cat.id}>
+              {categoryRazors.map((razor, i) => (
+                <RazorCard key={razor.id || i} razor={razor} />
+              ))}
+            </TabsContent>
+          );
+        })}
       </Tabs>
     </div>
   );
