@@ -168,3 +168,15 @@ uv run python scripts/governance_report.py
 ```
 
 That report — from real decisions, with real evidence quotes and real follow-ups — is the first credible governance proof.
+
+### 7. Enforcing the 5-part contract with Pydantic
+
+**Problem:** Although `GovernedFinding` required the 5-part contract fields, they were technically `Optional`, and the validation was missing at the model level for non-rejected findings. A finding could be stored with a `null` causal risk or diagnostic question. Also, the README offsets had a small typo (using 20/75 instead of 15/77).
+
+**Fix (`mental_razors/models.py`, `tests/test_storage.py`):**
+- Added a `@model_validator(mode="after")` to `GovernedFinding` to enforce the contract rules.
+- If `disposition != rejected`, the model enforces that `evidence_quote`, `evidence_start`, `evidence_end`, `causal_risk`, `diagnostic_question`, `false_positive_condition`, and `bounded_action` are all present.
+- If `disposition == mitigated`, it also strictly enforces `change_summary`.
+- Added tests `test_mitigated_finding_requires_change_summary` and `test_readme_example_validates` (with the correct 15/77 offsets).
+- Corrected the `README.md` example evidence offsets.
+- Updated `examples/seed_synthetic_demo.py` to write `schema_version: 3` and `GovernedFinding`-shaped records.

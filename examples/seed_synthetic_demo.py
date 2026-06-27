@@ -206,6 +206,31 @@ SYNTHETIC_CASES = [
 ]
 
 
+def _governed_finding_dict(razor_id: str, disposition: str, change_summary=None) -> dict:
+    """
+    Build a GovernedFinding-shaped dict for synthetic demo records.
+
+    Synthetic records carry null for evidence and five-part contract fields,
+    and are explicitly marked data_origin='synthetic'.
+    Real reviews must supply all non-null fields via GovernedFinding model validation.
+    """
+    return {
+        "razor_id":                razor_id,
+        "disposition":             disposition,
+        # Evidence — null in synthetic records (no real proposal text)
+        "evidence_quote":          None,
+        "evidence_start":          None,
+        "evidence_end":            None,
+        # Five-part contract — null in synthetic records
+        "causal_risk":             None,
+        "diagnostic_question":     None,
+        "false_positive_condition": None,
+        "bounded_action":          None,
+        # Decision outcome
+        "change_summary":          change_summary,
+    }
+
+
 def write_record(f, record: dict) -> None:
     f.write(json.dumps(record, default=str) + "\n")
 
@@ -236,19 +261,29 @@ def seed(output_dir: str, force: bool) -> None:
         for case in SYNTHETIC_CASES:
             review_id = str(uuid.uuid4())
 
+            # Convert compact finding dicts to GovernedFinding-shaped records
+            governed_findings = [
+                _governed_finding_dict(
+                    razor_id=f["razor_id"],
+                    disposition=f["disposition"],
+                    change_summary=f.get("change_summary"),
+                )
+                for f in case["findings"]
+            ]
+
             review = {
                 "decision_id":             case["decision_id"],
                 "mode":                    case["mode"],
                 "initial_content_hash":    "synthetic",
                 "final_content_hash":      None,
-                "findings":                case["findings"],
+                "findings":                governed_findings,
                 "decision_summary":        case["decision_summary"],
                 "change_summary":          case.get("change_summary"),
                 "review_duration_seconds": case["review_duration_seconds"],
                 "review_id":               review_id,
                 "created_at":              datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
                 "knowledge_version":       knowledge_ver,
-                "schema_version":          2,
+                "schema_version":          3,
                 "data_origin":             "synthetic",
             }
             write_record(rf, review)

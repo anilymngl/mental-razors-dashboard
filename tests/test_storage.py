@@ -202,35 +202,42 @@ def test_record_review_appends_multiple(monkeypatch, tmp_path):
 # ── Evidence validation ───────────────────────────────────────────────
 
 def test_record_review_rejects_wrong_evidence_quote(monkeypatch, tmp_path):
-    """evidence_quote must exactly match proposal_text[start:end]."""
+    """evidence_quote must exactly match proposal_text[start:end].
+
+    With the model_validator, GovernedFinding(disposition=mitigated, evidence_quote=BAD)
+    is first accepted by Pydantic (the validator checks content, not the quote value at
+    model time). The storage layer then rejects it when it checks the actual substring.
+    We build the finding with a correct quote so the model validator passes, then
+    replace the quote field before calling record_review to simulate a tampered input.
+    """
     monkeypatch.setenv("MENTAL_RAZORS_DATA_DIR", str(tmp_path))
     quote = "three independent microservices for auth, profile and logging"
     start = PROPOSAL.index(quote)
-    bad_finding = GovernedFinding(
-        razor_id="over-engineering-razor",
-        disposition=FindingDispositionEnum.mitigated,
-        evidence_quote="WRONG TEXT that does not appear in the proposal",
-        evidence_start=start,
-        evidence_end=start + len(quote),
-        causal_risk="x",
-        diagnostic_question="x",
-        false_positive_condition="x",
-        bounded_action="x",
-    )
+    # Build a valid finding first ...
+    good_finding = _mitigated_finding()
+    # ... then manually mutate the evidence_quote to a wrong value
+    # (bypassing the model validator to test the storage-layer check)
+    bad_finding_dict = good_finding.model_dump()
+    bad_finding_dict["evidence_quote"] = "WRONG TEXT that does not match"
+    # Build from dict using model_construct (skips validator) to simulate tampered data
+    from mental_razors.models import GovernedFinding as GF
+    bad_finding = GF.model_construct(**bad_finding_dict)
     with pytest.raises(ValueError, match="Evidence validation failed"):
         record_review(_make_review_input(findings=[bad_finding]))
 
 
 def test_record_review_rejects_missing_evidence_for_non_rejected(monkeypatch, tmp_path):
-    """Non-rejected findings without evidence fields should be rejected."""
+    """Non-rejected GovernedFinding without required fields fails at model construction.
+    The model_validator fires before storage, so we test that Pydantic raises.
+    """
     monkeypatch.setenv("MENTAL_RAZORS_DATA_DIR", str(tmp_path))
-    bad_finding = GovernedFinding(
-        razor_id="over-engineering-razor",
-        disposition=FindingDispositionEnum.mitigated,
-        # No evidence_quote, evidence_start, evidence_end
-    )
-    with pytest.raises(ValueError, match="missing required evidence fields"):
-        record_review(_make_review_input(findings=[bad_finding]))
+    from pydantic import ValidationError
+    with pytest.raises(ValidationError, match="missing required fields"):
+        GovernedFinding(
+            razor_id="over-engineering-razor",
+            disposition=FindingDispositionEnum.mitigated,
+            # No evidence or five-part contract fields
+        )
 
 
 def test_record_review_rejects_unknown_razor_id(monkeypatch, tmp_path):
@@ -242,6 +249,83 @@ def test_record_review_rejects_unknown_razor_id(monkeypatch, tmp_path):
     )
     with pytest.raises(ValueError, match="Unknown razor ID"):
         record_review(_make_review_input(findings=[bad_finding]))
+
+
+def test_mitigated_finding_requires_change_summary():
+    """disposition=mitigated must include change_summary — enforced by Pydantic validator."""
+    from pydantic import ValidationError
+    quote = "three independent microservices for auth, profile and logging"
+    start = PROPOSAL.index(quote)
+    with pytest.raises(ValidationError, match="change_summary is missing"):
+        GovernedFinding(
+            razor_id="over-engineering-razor",
+            disposition=FindingDispositionEnum.mitigated,
+            evidence_quote=quote,
+            evidence_start=start,
+            evidence_end=start + len(quote),
+            causal_risk="x",
+            diagnostic_question="x",
+            false_positive_condition="x",
+            bounded_action="x",
+            # change_summary intentionally omitted
+        )
+
+
+def test_readme_example_validates(monkeypatch, tmp_path):
+    """
+    Execute the exact example payload from README.md through the full
+    record_review flow to ensure the README is not misleading.
+
+    proposal_text: 'We will deploy three independent microservices for auth, profile, and logging.'
+    evidence_quote: 'three independent microservices for auth, profile, and logging'
+    Correct offsets:  start=15, end=77
+    """
+    monkeypatch.setenv("MENTAL_RAZORS_DATA_DIR", str(tmp_path))
+
+    proposal = "We will deploy three independent microservices for auth, profile, and logging."
+    quote    = "three independent microservices for auth, profile, and logging"
+    start    = proposal.index(quote)   # must be 15
+    end      = start + len(quote)      # must be 77
+    assert start == 15, f"README offset wrong: expected start=15, got {start}"
+    assert end   == 77, f"README offset wrong: expected end=77, got {end}"
+
+    finding = GovernedFinding(
+        razor_id="over-engineering-razor",
+        disposition=FindingDispositionEnum.mitigated,
+        evidence_quote=quote,
+        evidence_start=start,
+        evidence_end=end,
+        causal_risk="Three services add deployment overhead with no measured benefit at current scale.",
+        diagnostic_question="Have you profiled the request boundaries between these services under expected load?",
+        false_positive_condition="If each service has distinct team ownership, release cadence, and independently scalable SLOs.",
+        bounded_action="Merge into one service with clear module boundaries; split only if profiling shows clear cross-service bottlenecks.",
+        change_summary="Collapsed three services into a single modular service.",
+    )
+
+    inp = ReviewRecordInput(
+        decision_id="arch-2026-06-27-microservices",
+        mode="architecture-review",
+        proposal_text=proposal,
+        revised_text="We will deploy a single modular service with separate modules for auth, profile, and logging.",
+        findings=[finding],
+        decision_summary="Mitigated over-engineering by merging three services into one modular service.",
+        change_summary="Proposal revised to use a single service with internal modules.",
+        review_duration_seconds=420,
+    )
+
+    rec = record_review(inp)
+    assert rec.schema_version == 3
+    assert rec.initial_content_hash == _sha256(proposal)
+    assert rec.final_content_hash is not None
+    stored = json.loads((tmp_path / "reviews.jsonl").read_text())
+    f = stored["findings"][0]
+    assert f["evidence_quote"]  == quote
+    assert f["evidence_start"]  == 15
+    assert f["evidence_end"]    == 77
+    assert f["causal_risk"]     is not None
+    assert f["bounded_action"]  is not None
+    assert f["change_summary"]  is not None
+
 
 
 # ── review_id_exists ──────────────────────────────────────────────────

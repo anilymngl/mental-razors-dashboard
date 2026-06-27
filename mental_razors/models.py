@@ -5,7 +5,7 @@ from enum import Enum
 from typing import Dict, Any, List, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 # =====================================================================
@@ -81,8 +81,12 @@ class GovernedFinding(BaseModel):
     This is the unit of governance audit: it preserves exactly what the reviewer
     accepted as true, including the verbatim evidence quote they referenced.
 
-    Rejected findings are stored without evidence_quote/causal_risk/etc. to keep
-    the record lean; their razor_id and disposition=rejected are still captured.
+    Enforcement rules (via model_validator):
+    - disposition == rejected   → no evidence or contract fields required
+    - disposition != rejected   → evidence_quote, evidence_start, evidence_end,
+                                   causal_risk, diagnostic_question,
+                                   false_positive_condition, bounded_action all required
+    - disposition == mitigated  → change_summary additionally required
     """
     razor_id:   str                   = Field(description="ID of the razor this finding refers to")
     disposition: FindingDispositionEnum = Field(
@@ -90,7 +94,7 @@ class GovernedFinding(BaseModel):
     )
 
     # Evidence — the exact verbatim substring from the original proposal.
-    # Required for mitigated/accepted/deferred. Null for rejected.
+    # Required for mitigated/accepted/deferred; must be null or absent for rejected.
     evidence_quote:    Optional[str] = Field(
         default=None,
         description=(
@@ -101,36 +105,88 @@ class GovernedFinding(BaseModel):
     )
     evidence_start:    Optional[int] = Field(
         default=None,
-        description="Character offset of evidence_quote in the original proposal text",
+        description="Character offset of evidence_quote in the original proposal text. Required when disposition != rejected.",
     )
     evidence_end:      Optional[int] = Field(
         default=None,
-        description="Exclusive character offset end of evidence_quote",
+        description="Exclusive character offset end of evidence_quote. Required when disposition != rejected.",
     )
 
-    # The five-part contract — required for mitigated/accepted/deferred
+    # Five-part governance contract — required for mitigated/accepted/deferred.
     causal_risk:          Optional[str] = Field(
         default=None,
-        description="What could go wrong if this finding is ignored",
+        description="What could go wrong if this finding is ignored. Required when disposition != rejected.",
     )
     diagnostic_question:  Optional[str] = Field(
         default=None,
-        description="The concrete question asked to probe this reasoning flaw",
+        description="The concrete question asked to probe this reasoning flaw. Required when disposition != rejected.",
     )
     false_positive_condition: Optional[str] = Field(
         default=None,
-        description="Under what conditions would this finding be a false positive",
+        description="Under what conditions would this finding be a false positive. Required when disposition != rejected.",
     )
     bounded_action:       Optional[str] = Field(
         default=None,
-        description="One specific bounded action recommended to address this finding",
+        description="One specific bounded action recommended to address this finding. Required when disposition != rejected.",
     )
 
-    # Decision outcome
+    # Required for mitigated; strongly recommended for deferred.
     change_summary: Optional[str] = Field(
         default=None,
-        description="What materially changed in the proposal as a result (for mitigated/deferred)",
+        description=(
+            "What materially changed in the proposal as a result of this finding. "
+            "Required when disposition == mitigated."
+        ),
     )
+
+    @model_validator(mode="after")
+    def _enforce_governance_contract(self) -> "GovernedFinding":
+        """
+        Enforce governance contract completeness:
+        - Non-rejected findings must supply the full five-part contract and evidence.
+        - Mitigated findings must supply change_summary.
+        - Empty strings are treated as missing (normalized to None).
+        """
+        # Normalize empty strings to None so validators catch them
+        for field in (
+            "evidence_quote", "causal_risk", "diagnostic_question",
+            "false_positive_condition", "bounded_action", "change_summary",
+        ):
+            if getattr(self, field) == "":
+                object.__setattr__(self, field, None)
+
+        if self.disposition == FindingDispositionEnum.rejected:
+            # Rejected findings do not carry a contract — nothing to enforce.
+            return self
+
+        # --- Required for all non-rejected findings ---
+        missing = []
+        for field in (
+            "evidence_quote", "evidence_start", "evidence_end",
+            "causal_risk", "diagnostic_question",
+            "false_positive_condition", "bounded_action",
+        ):
+            if getattr(self, field) is None:
+                missing.append(field)
+
+        if missing:
+            raise ValueError(
+                f"GovernedFinding for razor '{self.razor_id}' "
+                f"(disposition={self.disposition.value}) is missing required fields: "
+                f"{missing}. All non-rejected findings must supply evidence "
+                "and the full five-part governance contract "
+                "(causal_risk, diagnostic_question, false_positive_condition, bounded_action)."
+            )
+
+        # --- Mitigated additionally requires change_summary ---
+        if self.disposition == FindingDispositionEnum.mitigated and self.change_summary is None:
+            raise ValueError(
+                f"GovernedFinding for razor '{self.razor_id}' has disposition=mitigated "
+                "but change_summary is missing. Mitigated findings must describe "
+                "what materially changed in the proposal."
+            )
+
+        return self
 
 
 # Backward-compatible alias kept for tests and older callers
