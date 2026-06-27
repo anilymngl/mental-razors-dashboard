@@ -1,0 +1,126 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Mental Razors Knowledge Schema",
+  "type": "object",
+  "required": ["schema_version", "categories", "razors"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "integer"
+    },
+    "categories": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "label", "order"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string" },
+          "label": { "type": "string" },
+          "order": { "type": "integer" }
+        }
+      }
+    },
+    "razors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "category_id",
+          "title",
+          "tags",
+          "provenance",
+          "principle",
+          "pattern",
+          "trigger_conditions",
+          "false_positive_conditions",
+          "diagnostic_questions",
+          "recommended_actions",
+          "indicators",
+          "applications",
+          "examples"
+        ],
+        "additionalProperties": true,
+        "properties": {
+          "id": { "type": "string" },
+          "category_id": { "type": "string" },
+          "title": { "type": "string" },
+          "tags": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "provenance": {
+            "type": "object",
+            "required": ["type"],
+            "additionalProperties": false,
+            "properties": {
+              "type": { "enum": ["original", "adapted", "classical"] },
+              "attribution": { "type": ["string", "null"] },
+              "source_url": { "type": ["string", "null"] },
+              "notes": { "type": ["string", "null"] }
+            }
+          },
+          "principle": { "type": "string" },
+          "pattern": { "type": "string" },
+          "origin_and_evolution": { "type": "string" },
+          "theoretical_foundations": { "type": "string" },
+          "distinction_from_biases_heuristics": { "type": "string" },
+          "boundary_conditions_limitations": { "type": "string" },
+          "methodological_approaches": { "type": "string" },
+          "evidence_prioritized": { "type": "string" },
+          "implementation_patterns": { "type": "string" },
+          "contextual_adaptations": { "type": "string" },
+          "counter_arguments_or_anti_razors": { "type": "string" },
+          "related_razors": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "trigger_conditions": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string" }
+          },
+          "false_positive_conditions": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string" }
+          },
+          "diagnostic_questions": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string" }
+          },
+          "recommended_actions": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string" }
+          },
+          "indicators": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "applications": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "examples": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["title", "context", "blindspot", "consequence", "learning"],
+              "additionalProperties": false,
+              "properties": {
+                "title": { "type": "string" },
+                "context": { "type": "string" },
+                "blindspot": { "type": "string" },
+                "consequence": { "type": "string" },
+                "learning": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

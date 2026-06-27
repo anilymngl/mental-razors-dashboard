@@ -1,0 +1,90 @@
+cases:
+  - id: positive-legacy
+    description: "Clear trigger for Legacy Razor"
+    expected_razor: "legacy-razor"
+    should_trigger: true
+    content: "We should definitely continue using our proprietary C++ network engine because it has worked flawlessly for our games over the last 15 years. I am highly dismissive of these new web-socket frameworks the juniors are advocating for; they don't have our historical success."
+
+  - id: near-miss-legacy
+    description: "Historical method validated with recent data - should NOT trigger"
+    expected_razor: "legacy-razor"
+    should_trigger: false
+    content: "We evaluated transitioning to WebSockets, but benchmarking showed that our custom C++ protocol still achieves 40% lower latency and 2x higher throughput under our current 2026 player loads. The transition costs and performance regression risk outweigh the benefits, so we will stay on the C++ engine."
+
+  - id: positive-complexity
+    description: "Clear trigger for Complexity Razor"
+    expected_razor: "complexity-razor"
+    should_trigger: true
+    content: "Our new user onboarding requires them to manually enter their location, copy-paste a confirmation hash, verify their email in under 3 minutes, and format their password with exactly 2 emojis. If everyone acts optimally and follows these instructions, onboarding works perfectly. This design assumes optimal behavior."
+
+  - id: positive-innovation
+    description: "Clear trigger for Innovation Razor"
+    expected_razor: "innovation-razor"
+    should_trigger: true
+    content: "We will solve the password security issue by requiring every employee to change their password every 10 days, use a separate physical token, and memorize a 16-character phrase. If they fail, they are just lazy users who do not care about safety. This relies on large-scale behavior shifts and ignores user convenience."
+
+  - id: near-miss-innovation
+    description: "Behavior change aligned with massive value proposition - should NOT trigger"
+    expected_razor: "innovation-razor"
+    should_trigger: false
+    content: "We introduced a password-less login where employees touch their fingerprint reader or look at their webcam to authenticate. This changes their login behavior but completely eliminates typing passwords."
+
+  - id: positive-over-engineering
+    description: "Clear trigger for Over-Engineering Razor"
+    expected_razor: "over-engineering-razor"
+    should_trigger: true
+    content: "To build a simple blog website, we designed a serverless microservices framework spanning 14 repositories, with Kafka queues for post comments, Elasticsearch for search, and a Kubernetes cluster. I cannot explain the full network flow under two minutes because it's too complex. We cannot concisely explain the system."
+
+  - id: near-miss-over-engineering
+    description: "Inherently complex domain (compiler) - should NOT trigger"
+    expected_razor: "over-engineering-razor"
+    should_trigger: false
+    content: "Our compiler frontend consists of a lexer, a parser, an abstract syntax tree representation, a type checker, an intermediate representation generator, and an optimizer. This is a complex compiler architecture, but it is modular and maps directly to the language specification."
+
+  - id: positive-granularity
+    description: "Clear trigger for Granularity Razor"
+    expected_razor: "granularity-razor"
+    should_trigger: true
+    content: "We spent three weeks optimizing the font sizes, margin spacing, and button hover animations in our dashboard, while our customer churn rate remains at 70% because the core database queries take 15 seconds to load. This shows lots of activity with little progress."
+
+  - id: positive-coherence
+    description: "Clear trigger for Coherence Razor"
+    expected_razor: "coherence-razor"
+    should_trigger: true
+    content: "The market crashed because the Federal Reserve raised interest rates, causing investors to panic, which led to a liquidity crunch in tech stocks. I can explain this very clearly after the fact, but I have no way of predicting when the next crash will occur. This is an after-the-fact explanation with no testable predictions."
+
+  - id: positive-procrastination
+    description: "Clear trigger for Procrastination Razor"
+    expected_razor: "procrastination-razor"
+    should_trigger: true
+    content: "I have been putting off sending a 2-line confirmation email to our landlord for three weeks. I spend at least 15 minutes every morning feeling guilty and dreading it, which is way more energy than writing the email itself. This simple task weighs on my mind more than it would take to do."
+
+  - id: positive-confidence
+    description: "Clear trigger for Confidence Razor"
+    expected_razor: "confidence-razor"
+    should_trigger: true
+    content: "As a senior member of the technical staff with three PhDs and 25 years of experience, my assertion that microservices are always bad is correct. You don't need to see benchmark comparisons; my reputation is the proof. I frequently mention my titles and degrees, and appeal to authority over logic."
+
+  - id: positive-simplicity
+    description: "Clear trigger for Simplicity Razor"
+    expected_razor: "simplicity-razor"
+    should_trigger: true
+    content: "My model of neural network scaling is a perfect theory of everything. I cannot provide any simple example where it fails, because it is universally valid under all circumstances and can never be wrong. It claims near-infallibility and has no mention of edge cases."
+
+  - id: no-finding-1
+    description: "Clean system proposal - should NOT trigger any razor"
+    expected_razor: null
+    should_trigger: false
+    content: "To build the blog site, we will use a static site generator (VitePress) and host it on Vercel. We will retrieve posts from markdown files committed directly to the repository."
+
+  - id: multi-razor-ambiguity
+    description: "Triggers both Legacy and Over-engineering"
+    expected_razor: "legacy-razor"
+    should_trigger: true
+    content: "We will rewrite our monolithic web application using our 20-year-old proprietary C-based web server framework, but split it into 50 Docker containers with automated RPC routing and Kafka queues to make it modern. This shows an overemphasis on past success."
+
+  - id: near-miss-coherence
+    description: "Chaotic system with probabilistic forecasts - should NOT trigger"
+    expected_razor: "coherence-razor"
+    should_trigger: false
+    content: "While we cannot predict the exact daily weather next month, our ensemble forecasting model yields a 75% probability of above-average rainfall based on historical El Niño signatures."
