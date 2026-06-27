@@ -7,8 +7,8 @@ def test_prepare_review_packet():
     
     assert packet.mode == "architecture-review"
     assert len(packet.candidates) <= 2
-    assert packet.require_input_evidence is True
-    assert packet.allow_no_finding is True
+    assert packet.review_contract.require_exact_evidence is True
+    assert packet.review_contract.allow_no_finding is True
     assert "guidelines" in packet.review_instructions
     
     # Substring invariant check

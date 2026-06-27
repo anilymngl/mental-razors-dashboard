@@ -62,10 +62,17 @@ def prepare_review_packet(content: str, mode_id: str = "quick-check", max_candid
     candidates = retrieve_candidates(content, mode_id=mode_id, max_candidates=max_candidates)
     review_instructions = DEFAULT_INSTRUCTIONS[mode_id]
     
+    from mental_razors.models import ReviewContract
+    contract = ReviewContract(
+        require_exact_evidence=True,
+        allow_no_finding=True,
+        max_final_findings=3
+    )
     return ReviewPacket(
         mode=mode_id,
         candidates=candidates,
-        review_instructions=review_instructions
+        review_instructions=review_instructions,
+        review_contract=contract
     )
 
 def prepare_claim_challenge_packet(claim: str, context: Optional[str] = None) -> ClaimChallengePacket:

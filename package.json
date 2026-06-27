@@ -17,7 +17,8 @@
     "build": "npm run knowledge:compile && react-scripts build",
     "predeploy": "npm run build",
     "deploy": "gh-pages -d build",
-    "knowledge:compile": "uv run python scripts/compile_knowledge.py"
+    "knowledge:compile": "uv run python scripts/compile_knowledge.py",
+    "knowledge:check": "uv run python scripts/compile_knowledge.py --check"
   },
   "browserslist": {
     "production": [

@@ -15,13 +15,16 @@ class RazorCandidate(BaseModel):
     diagnostic_questions: List[str] = Field(description="Concrete questions to probe this reasoning flaw")
     false_positive_conditions: List[str] = Field(description="Conditions under which this critique is a false positive")
 
+class ReviewContract(BaseModel):
+    require_exact_evidence: bool = Field(default=True, description="Enforce strict evidence referencing")
+    allow_no_finding: bool = Field(default=True, description="Allow empty findings output")
+    max_final_findings: int = Field(default=3, description="Suggested limit on final findings")
+
 class ReviewPacket(BaseModel):
     mode: str = Field(description="Review mode preset used (e.g., architecture-review)")
     candidates: List[RazorCandidate] = Field(description="Sorted list of relevant candidate razors and evidence")
     review_instructions: Dict[str, Any] = Field(description="Prompt guidelines for the host model")
-    require_input_evidence: bool = Field(default=True, description="Enforce strict evidence referencing")
-    allow_no_finding: bool = Field(default=True, description="Allow empty findings output")
-    max_final_findings: int = Field(default=3, description="Suggested limit on final findings")
+    review_contract: ReviewContract = Field(default_factory=ReviewContract, description="The governance contract constraints")
 
 class ReviewRecordInput(BaseModel):
     decision_id: str = Field(description="User-provided identifier for the decision being audited")
@@ -43,3 +46,17 @@ class ClaimChallengePacket(BaseModel):
     context: Optional[str] = Field(default=None, description="Optional supporting context")
     candidates: List[RazorCandidate] = Field(description="Relevant candidate razors for challenging the claim")
     challenge_instructions: Dict[str, Any] = Field(description="Action guidelines for checking and challenging this claim")
+
+class OutcomeRecordInput(BaseModel):
+    review_id: str = Field(description="Referenced review ID from record_review")
+    observed_at: str = Field(description="ISO 8601 date string of the observation, e.g., YYYY-MM-DD")
+    status: str = Field(description="Status of the outcome: successful | mixed | failed | unknown")
+    observations: List[str] = Field(description="List of observations or notes")
+    risks_materialized: List[str] = Field(description="List of razor IDs or risk descriptions that materialized")
+    unexpected_issues: List[str] = Field(description="List of unexpected issues encountered")
+    confidence: str = Field(description="Confidence rating: low | medium | high")
+
+class OutcomeRecord(OutcomeRecordInput):
+    outcome_id: str = Field(description="UUID v4 identifier for this outcome record")
+    created_at: str = Field(description="ISO 8601 UTC timestamp")
+    schema_version: int = Field(default=1, description="Format version of the outcome trail")

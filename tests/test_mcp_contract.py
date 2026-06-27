@@ -12,6 +12,7 @@ async def test_mcp_tool_registration():
     assert "prepare_review" in tool_names
     assert "prepare_claim_challenge" in tool_names
     assert "record_review" in tool_names
+    assert "record_outcome" in tool_names
 
 @pytest.mark.asyncio
 async def test_mcp_resource_registration():
@@ -97,6 +98,26 @@ async def test_mcp_tool_execution(monkeypatch):
         import hashlib
         expected_hash = hashlib.sha256(reviewed_content.encode('utf-8')).hexdigest()
         assert parsed_record["input_hash"] == expected_hash
+
+        # 5. record_outcome
+        outcome_input = {
+            "review_id": parsed_record["review_id"],
+            "observed_at": "2026-08-01",
+            "status": "successful",
+            "observations": ["System performed stably under load."],
+            "risks_materialized": [],
+            "unexpected_issues": [],
+            "confidence": "high"
+        }
+        outcome_res, _ = await mcp.call_tool("record_outcome", {
+            "review_id": parsed_record["review_id"],
+            "outcome": outcome_input
+        })
+        assert len(outcome_res) == 1
+        parsed_outcome = json.loads(outcome_res[0].text)
+        assert parsed_outcome["review_id"] == parsed_record["review_id"]
+        assert parsed_outcome["status"] == "successful"
+        assert parsed_outcome["outcome_id"] is not None
 
 def test_stdio_startup():
     import subprocess

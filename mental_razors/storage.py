@@ -4,7 +4,7 @@ import uuid
 import hashlib
 from datetime import datetime, timezone
 from typing import Optional
-from mental_razors.models import ReviewRecordInput, ReviewRecord
+from mental_razors.models import ReviewRecordInput, ReviewRecord, OutcomeRecordInput, OutcomeRecord
 from mental_razors.loader import get_knowledge_version
 
 def get_storage_dir() -> str:
@@ -66,3 +66,45 @@ def record_review(input_data: ReviewRecordInput, content: Optional[str] = None) 
         f.write(record.model_dump_json() + '\n')
         
     return record
+
+def record_outcome(input_data: OutcomeRecordInput) -> OutcomeRecord:
+    # Validation check for status values
+    valid_statuses = {"successful", "mixed", "failed", "unknown"}
+    if input_data.status not in valid_statuses:
+        raise ValueError(
+            f"Invalid outcome status '{input_data.status}'. "
+            f"Must be one of: {list(valid_statuses)}"
+        )
+        
+    # Validation check for confidence values
+    valid_confidences = {"low", "medium", "high"}
+    if input_data.confidence not in valid_confidences:
+        raise ValueError(
+            f"Invalid outcome confidence '{input_data.confidence}'. "
+            f"Must be one of: {list(valid_confidences)}"
+        )
+        
+    storage_dir = get_storage_dir()
+    os.makedirs(storage_dir, exist_ok=True)
+    
+    # Instantiate the complete outcome audit model
+    record = OutcomeRecord(
+        review_id=input_data.review_id,
+        observed_at=input_data.observed_at,
+        status=input_data.status,
+        observations=input_data.observations,
+        risks_materialized=input_data.risks_materialized,
+        unexpected_issues=input_data.unexpected_issues,
+        confidence=input_data.confidence,
+        outcome_id=str(uuid.uuid4()),
+        created_at=datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z'),
+        schema_version=1
+    )
+    
+    # Append the JSONL record to outcomes.jsonl
+    outcome_file = os.path.join(storage_dir, 'outcomes.jsonl')
+    with open(outcome_file, 'a', encoding='utf-8') as f:
+        f.write(record.model_dump_json() + '\n')
+        
+    return record
+

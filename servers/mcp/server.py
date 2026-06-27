@@ -15,13 +15,15 @@ from mental_razors.review import (
     prepare_claim_challenge_packet,
     DEFAULT_INSTRUCTIONS
 )
-from mental_razors.storage import record_review as store_review
+from mental_razors.storage import record_review as store_review, record_outcome as store_outcome
 from mental_razors.models import (
     ReviewPacket,
     ClaimChallengePacket,
     ReviewRecordInput,
     ReviewRecord,
-    RazorCandidate
+    RazorCandidate,
+    OutcomeRecordInput,
+    OutcomeRecord
 )
 
 # Initialize FastMCP Server
@@ -139,6 +141,18 @@ def record_review(
     to the append-only reviews history file (.local/reviews.jsonl).
     """
     return store_review(review_record, content=reviewed_content)
+
+@mcp.tool()
+def record_outcome(
+    review_id: str,
+    outcome: OutcomeRecordInput
+) -> OutcomeRecord:
+    """
+    Record observations, materialized risks, and decision success rates
+    for a completed review.
+    """
+    outcome.review_id = review_id
+    return store_outcome(outcome)
 
 # =====================================================================
 # PROMPTS: Structured host-model workflows
