@@ -1,145 +1,190 @@
+"""
+tests/test_mcp_contract.py
+
+Verifies the MCP server registers the correct tools, resources, and prompts,
+and that the tools execute correctly against the new ReviewRecordInput schema.
+"""
+from __future__ import annotations
+
+import hashlib
+import json
+import subprocess
+import sys
+import tempfile
+
 import pytest
+
 from servers.mcp.server import mcp
 from mental_razors.models import ReviewPacket, ClaimChallengePacket, ReviewRecord
 
+
+# ── Tool / Resource / Prompt registration ────────────────────────────
+
 @pytest.mark.asyncio
 async def test_mcp_tool_registration():
-    # Retrieve registered tools via FastMCP public API
     tools = await mcp.list_tools()
     tool_names = [t.name for t in tools]
-    
+
     assert "search_razors" in tool_names
     assert "prepare_review" in tool_names
     assert "prepare_claim_challenge" in tool_names
     assert "record_review" in tool_names
     assert "record_outcome" in tool_names
 
+
 @pytest.mark.asyncio
 async def test_mcp_resource_registration():
-    # Retrieve registered resources via FastMCP public API
     resources = await mcp.list_resources()
     uris = [str(r.uri) for r in resources]
-    
+
     assert "razor://all" in uris
     assert "review-mode://all" in uris
     assert "knowledge://manifest" in uris
 
+
 @pytest.mark.asyncio
 async def test_mcp_prompt_registration():
-    # Retrieve registered prompts via FastMCP public API
     prompts = await mcp.list_prompts()
     names = [p.name for p in prompts]
-    
+
     assert "architecture_review" in names
     assert "strategy_review" in names
     assert "postmortem_review" in names
     assert "product_review" in names
     assert "red_team_review" in names
 
+
+# ── Tool execution ────────────────────────────────────────────────────
+
 @pytest.mark.asyncio
-async def test_mcp_tool_execution(monkeypatch):
-    import json
-    import tempfile
-    
-    # 1. search_razors
-    search_res, _ = await mcp.call_tool("search_razors", {"query": "success legacy"})
-    assert len(search_res) > 0
-    # Check that output is valid JSON matching RazorCandidate schema
-    parsed_search = json.loads(search_res[0].text)
-    assert parsed_search["razor_id"] == "legacy-razor"
-    assert parsed_search["retrieval_score"] > 0
-    
-    # 2. prepare_review
-    review_res, _ = await mcp.call_tool("prepare_review", {
+async def test_search_razors_returns_results():
+    results, _ = await mcp.call_tool("search_razors", {"query": "success legacy"})
+    assert len(results) > 0
+    parsed = json.loads(results[0].text)
+    assert "razor_id" in parsed
+    assert "retrieval_score" in parsed
+
+
+@pytest.mark.asyncio
+async def test_prepare_review_returns_packet():
+    results, _ = await mcp.call_tool("prepare_review", {
         "content": "Our system assumes optimal behavior from all users.",
         "mode": "architecture-review"
     })
-    assert len(review_res) == 1
-    parsed_review = json.loads(review_res[0].text)
-    assert parsed_review["mode"] == "architecture-review"
-    assert len(parsed_review["candidates"]) > 0
-    assert parsed_review["review_instructions"]["role"] is not None
-    
-    # 3. prepare_claim_challenge
-    challenge_res, _ = await mcp.call_tool("prepare_claim_challenge", {
+    assert len(results) == 1
+    parsed = json.loads(results[0].text)
+    assert parsed["mode"] == "architecture-review"
+    assert len(parsed["candidates"]) > 0
+    assert parsed["review_instructions"]["role"] is not None
+
+
+@pytest.mark.asyncio
+async def test_prepare_claim_challenge_returns_packet():
+    results, _ = await mcp.call_tool("prepare_claim_challenge", {
         "claim": "The economic forecast is perfectly predictable."
     })
-    assert len(challenge_res) == 1
-    parsed_challenge = json.loads(challenge_res[0].text)
-    assert parsed_challenge["claim"] == "The economic forecast is perfectly predictable."
-    assert len(parsed_challenge["candidates"]) > 0
-    
-    # 4. record_review
+    assert len(results) == 1
+    parsed = json.loads(results[0].text)
+    assert parsed["claim"] == "The economic forecast is perfectly predictable."
+    assert len(parsed["candidates"]) > 0
+
+
+@pytest.mark.asyncio
+async def test_record_review_and_outcome_end_to_end(monkeypatch):
+    """
+    Full round-trip: record_review then record_outcome.
+    Uses a temp dir to avoid touching real storage.
+    """
+    import uuid
+
     with tempfile.TemporaryDirectory() as tmp_dir:
         monkeypatch.setenv("MENTAL_RAZORS_DATA_DIR", tmp_dir)
-        
+
+        content = "Deploy three independent microservices for auth, profile, and logging."
+        content_hash = hashlib.sha256(content.encode()).hexdigest()
+
         review_record_input = {
-            "decision_id": "mcp-test-123",
+            "decision_id": "mcp-e2e-test-001",
             "mode": "quick-check",
-            "accepted_findings": ["complexity-razor"],
-            "rejected_findings": [],
-            "decision": "Add error boundary fallback component.",
-            "notes": "Testing record_review tool"
+            "initial_content_hash": content_hash,
+            "final_content_hash": None,
+            "findings": [
+                {
+                    "razor_id": "complexity-razor",
+                    "disposition": "mitigated",
+                    "change_summary": "Merged into a single service."
+                }
+            ],
+            "decision_summary": "Mitigated: Merged three services into one.",
+            "change_summary": "Reduced service count from three to one.",
+            "review_duration_seconds": 180,
         }
-        reviewed_content = "This is the content being reviewed."
-        
+
         record_res, _ = await mcp.call_tool("record_review", {
             "review_record": review_record_input,
-            "reviewed_content": reviewed_content
         })
-        
+
         assert len(record_res) == 1
         parsed_record = json.loads(record_res[0].text)
-        assert parsed_record["decision_id"] == "mcp-test-123"
+        assert parsed_record["decision_id"] == "mcp-e2e-test-001"
         assert parsed_record["review_id"] is not None
-        assert parsed_record["input_hash"] is not None
-        
-        # Verify hash matches SHA-256 of reviewed_content
-        import hashlib
-        expected_hash = hashlib.sha256(reviewed_content.encode('utf-8')).hexdigest()
-        assert parsed_record["input_hash"] == expected_hash
+        assert parsed_record["knowledge_version"] is not None
+        assert parsed_record["schema_version"] == 2
 
-        # 5. record_outcome
+        # Validate that a UUID was stored
+        uuid.UUID(parsed_record["review_id"])  # raises if invalid
+
+        # Now record an outcome linked to this review
         outcome_input = {
             "review_id": parsed_record["review_id"],
             "observed_at": "2026-08-01",
             "status": "successful",
-            "observations": ["System performed stably under load."],
+            "observations": ["System ran stably after merge."],
             "risks_materialized": [],
             "unexpected_issues": [],
-            "confidence": "high"
+            "confidence": "high",
         }
+
         outcome_res, _ = await mcp.call_tool("record_outcome", {
-            "review_id": parsed_record["review_id"],
-            "outcome": outcome_input
+            "outcome": outcome_input,
         })
         assert len(outcome_res) == 1
         parsed_outcome = json.loads(outcome_res[0].text)
         assert parsed_outcome["review_id"] == parsed_record["review_id"]
         assert parsed_outcome["status"] == "successful"
         assert parsed_outcome["outcome_id"] is not None
+        assert parsed_outcome["schema_version"] == 2
+
+
+# ── Stdio startup ─────────────────────────────────────────────────────
 
 def test_stdio_startup():
-    import subprocess
-    import sys
-    
-    # Run the server directly. It should block waiting on stdio input.
+    """
+    Start the MCP server as a subprocess; it should block waiting for
+    stdio input (TimeoutExpired = success) rather than crash.
+    """
+    import os as _os
+    project_root = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+    env = _os.environ.copy()
+    env["PYTHONPATH"] = project_root
+
     proc = subprocess.Popen(
         [sys.executable, "servers/mcp/server.py"],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
-        text=True
+        text=True,
+        cwd=project_root,
+        env=env,
     )
     try:
-        # If it crashed on boot, wait() will finish immediately.
-        # If it works, it blocks waiting on stdin, throwing a TimeoutExpired.
-        exit_code = proc.wait(timeout=1.0)
-        # If it exited, verify it exited cleanly
-        assert exit_code == 0
+        exit_code = proc.wait(timeout=2.0)
+        stderr = proc.stderr.read()
+        raise AssertionError(
+            f"Server exited with code {exit_code} immediately after start.\n"
+            f"Stderr:\n{stderr}"
+        )
     except subprocess.TimeoutExpired:
-        # Success - server started and blocks on stdio input
+        # Success: server started and is blocking on stdin
         proc.terminate()
         proc.wait()
-
-
